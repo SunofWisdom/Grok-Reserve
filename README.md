@@ -3,6 +3,8 @@
 A lean, self-contained Windows tray app that shows how much Grok subscription
 capacity you have left.
 
+![Grok Reserve dashboard and settings](screenshot.png)
+
 The tray icon is the Grok mark with a ring around it. Green means reserve or on
 pace; orange means deficit or exhausted — the same colours as the dashboard
 percent. Hover for a three-line tooltip. Click for the dashboard.

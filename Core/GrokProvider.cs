@@ -70,7 +70,6 @@ public static class GrokProvider
             {
                 var usage = product.TryGetProperty("usagePercent", out var up) ? up.GetDouble()
                     : product.TryGetProperty("usage_percent", out var up2) ? up2.GetDouble() : 0;
-                if (usage <= 0) continue;
                 var name = product.TryGetProperty("product", out var p) ? p.GetString() ?? "share" : "share";
                 windows.Add(new($"product-{name.ToLowerInvariant()}", ProductLabel(name), usage, minutes, end));
             }
@@ -172,14 +171,19 @@ public static class GrokProvider
         return "Usage pool";
     }
 
-    static string ProductLabel(string product) => product.ToLowerInvariant() switch
+    static string ProductLabel(string product)
     {
-        "grokbuild" => "Grok Build share",
-        "grokchat" => "Grok Chat share",
-        "grokimagine" => "Grok Imagine share",
-        "grokvoice" => "Grok Voice share",
-        _ => $"{product} share",
-    };
+        var key = Regex.Replace(product.ToLowerInvariant(), @"[_\-\s]", "");
+        return key switch
+        {
+            "grokbuild" => "Grok Build share",
+            "grokchat" => "Grok Chat share",
+            "grokimagine" => "Grok Imagine share",
+            "grokvoice" => "Grok Voice share",
+            "grokbot" or "bot" => "Grok Bot share",
+            _ => $"{product} share",
+        };
+    }
 
     static JsonElement? Get(JsonElement el, string name) =>
         el.ValueKind == JsonValueKind.Object && el.TryGetProperty(name, out var v) ? v : null;

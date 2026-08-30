@@ -165,6 +165,7 @@ public sealed class Store
                 new("product-grokbuild", "Grok Build share", 38, 10080, now.AddDays(2.8)),
                 new("product-grokimagine", "Grok Imagine share", 9, 10080, now.AddDays(2.8)),
                 new("product-grokchat", "Grok Chat share", 5, 10080, now.AddDays(2.8)),
+                new("product-grokbot", "Grok Bot share", 12, 10080, now.AddDays(2.8)),
             ],
         };
         State.Error = null;

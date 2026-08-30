@@ -60,6 +60,7 @@ public sealed class DashboardForm : Form
         headerRight.Anchor = AnchorStyles.Right;
 
         _headline.MaximumSize = new Size(BodyWidth, 0);
+        _headline.AutoEllipsis = false;
         _headline.Margin = new Padding(0, 14, 0, 0);
         _sub.MaximumSize = new Size(BodyWidth, 0);
         _sub.Margin = new Padding(0, 4, 0, 16);
@@ -154,8 +155,8 @@ public sealed class DashboardForm : Form
         var remaining = window?.RemainingPercent;
         var needsSignIn = _store.State.RequiresConnection && !_store.State.IsConnecting;
 
-        _headline.Text = remaining is { } left ? $"{Math.Round(left)}% left" : "Not connected";
         _headline.ForeColor = window is null ? theme.Text : color;
+        SetHeadline(remaining is { } left ? $"{Math.Round(left)}% left" : "Not connected");
         _sub.Text = window is null
             ? "Sign in with the Grok CLI to read your allowance"
             : Format.Forecast(window, pace, now);
@@ -355,7 +356,29 @@ public sealed class DashboardForm : Form
         if (key.Contains("imagine")) return 1;
         if (key.Contains("chat")) return 2;
         if (key.Contains("voice")) return 3;
+        if (key.Contains("bot")) return 4;
         return 8;
+    }
+
+    void SetHeadline(string text)
+    {
+        _headline.Text = text;
+        for (var size = 32f; size >= 16f; size -= 1f)
+        {
+            using var font = new Font("Segoe UI", size, FontStyle.Bold);
+            var width = TextRenderer.MeasureText(
+                text,
+                font,
+                new Size(int.MaxValue, int.MaxValue),
+                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
+            if (width <= BodyWidth)
+            {
+                var previous = _headline.Font;
+                _headline.Font = new Font("Segoe UI", size, FontStyle.Bold);
+                if (!ReferenceEquals(previous, Font)) previous.Dispose();
+                return;
+            }
+        }
     }
 
     static string Updated(DateTimeOffset at, DateTimeOffset now)

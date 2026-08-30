@@ -4,9 +4,11 @@ namespace GrokReserve.Ui;
 
 public sealed class DashboardForm : Form
 {
-    const int BodyWidth = 320;
+    const int LogicalBody = 320;
 
     readonly Store _store;
+    readonly List<Control> _wide = [];
+    readonly FlowLayoutPanel _root;
     readonly PictureBox _logo = new();
     readonly Label _wordmark = MakeLabel(11f, FontStyle.Bold);
     readonly Label _fresh = MakeLabel(8.25f);
@@ -36,7 +38,6 @@ public sealed class DashboardForm : Form
         AutoSizeMode = AutoSizeMode.GrowAndShrink;
         Font = new Font("Segoe UI", 9.5f);
         Padding = new Padding(22, 16, 20, 14);
-        MinimumSize = new Size(364, 0);
         DoubleBuffered = true;
         if (AppBrand.WindowIcon is { } icon) Icon = icon;
 
@@ -59,16 +60,13 @@ public sealed class DashboardForm : Form
         headerRight.Controls.Add(_refresh);
         headerRight.Anchor = AnchorStyles.Right;
 
-        _headline.MaximumSize = new Size(BodyWidth, 0);
         _headline.AutoEllipsis = false;
+        _headline.AutoSize = true;
         _headline.Margin = new Padding(0, 14, 0, 0);
-        _sub.MaximumSize = new Size(BodyWidth, 0);
         _sub.Margin = new Padding(0, 4, 0, 16);
-        _error.MaximumSize = new Size(BodyWidth, 0);
         _error.Margin = new Padding(0, 0, 0, 10);
-        _limit.MaximumSize = new Size(BodyWidth, 0);
         _limit.Margin = new Padding(0, 0, 0, 8);
-        _meter.Size = new Size(BodyWidth, 4);
+        _meter.Height = 4;
         _meter.Margin = new Padding(0, 0, 0, 16);
         _signIn.Click += async (_, _) => await _store.ConnectAsync();
         _signIn.Padding = new Padding(10, 4, 10, 4);
@@ -79,35 +77,39 @@ public sealed class DashboardForm : Form
         _shares.FlowDirection = FlowDirection.TopDown;
         _shares.WrapContents = false;
         _shares.Margin = new Padding(0, 0, 0, 14);
-        _shares.MinimumSize = new Size(BodyWidth, 0);
 
         _footerLine.Height = 1;
-        _footerLine.Width = BodyWidth;
         _footerLine.Margin = new Padding(0, 2, 0, 8);
         _quit.Anchor = AnchorStyles.Right;
 
         var title = Row();
         title.Controls.Add(_logo);
         title.Controls.Add(_wordmark);
-        var root = Stack();
-        root.MinimumSize = new Size(BodyWidth, 0);
-        root.Controls.Add(Split(title, headerRight, 0, 0));
-        root.Controls.Add(_headline);
-        root.Controls.Add(_sub);
-        root.Controls.Add(_error);
-        root.Controls.Add(_signIn);
-        root.Controls.Add(_limit);
-        root.Controls.Add(_meter);
-        root.Controls.Add(_shares);
-        root.Controls.Add(_footerLine);
-        root.Controls.Add(Split(_settings, _quit, 0, 0));
-        Controls.Add(root);
+        _root = Stack();
+        _root.Controls.Add(Split(title, headerRight, 0, 0));
+        _root.Controls.Add(_headline);
+        _root.Controls.Add(_sub);
+        _root.Controls.Add(_error);
+        _root.Controls.Add(_signIn);
+        _root.Controls.Add(_limit);
+        _root.Controls.Add(_meter);
+        _root.Controls.Add(_shares);
+        _root.Controls.Add(_footerLine);
+        _root.Controls.Add(Split(_settings, _quit, 0, 0));
+        Controls.Add(_root);
+        _wide.Add(_root);
+        _wide.Add(_shares);
 
         _settings.Click += (_, _) => OpenSettings?.Invoke();
         _quit.Click += (_, _) => Application.Exit();
 
         Theme.Changed += OnThemeChanged;
-        HandleCreated += (_, _) => NativeChrome.ApplyPopover(this);
+        HandleCreated += (_, _) =>
+        {
+            NativeChrome.ApplyPopover(this);
+            ApplyWidths();
+            Render();
+        };
         Deactivate += (_, _) =>
         {
             if (Environment.TickCount64 - OpenedAtMs < 250) return;
@@ -155,8 +157,9 @@ public sealed class DashboardForm : Form
         var remaining = window?.RemainingPercent;
         var needsSignIn = _store.State.RequiresConnection && !_store.State.IsConnecting;
 
+        ApplyWidths();
+        _headline.Text = remaining is { } left ? $"{Math.Round(left)}% left" : "Not connected";
         _headline.ForeColor = window is null ? theme.Text : color;
-        SetHeadline(remaining is { } left ? $"{Math.Round(left)}% left" : "Not connected");
         _sub.Text = window is null
             ? "Sign in with the Grok CLI to read your allowance"
             : Format.Forecast(window, pace, now);
@@ -177,7 +180,10 @@ public sealed class DashboardForm : Form
             _meter.Invalidate();
         }
 
-        BindShares(window is null ? [] : _store.State.Snapshot?.Windows.Where(w => w.IsComponentShare) ?? []);
+        if (_store.State.Snapshot is null)
+            _shares.Visible = false;
+        else
+            BindShares(_store.State.Snapshot.Windows.Where(w => w.IsComponentShare));
         ApplyTheme();
         PerformLayout();
     }
@@ -185,9 +191,7 @@ public sealed class DashboardForm : Form
     void BindShares(IEnumerable<UsageWindow> shares)
     {
         var theme = Theme.Current;
-        var items = shares
-            .OrderBy(w => ShareOrder(Format.ShareName(w.Label)))
-            .ToList();
+        var items = MergeShares(shares);
         _shares.Visible = items.Count > 0;
         while (_shares.Controls.Count > items.Count)
         {
@@ -199,8 +203,33 @@ public sealed class DashboardForm : Form
         {
             if (_shares.Controls.Count == i)
                 _shares.Controls.Add(new ShareRow());
-            ((ShareRow)_shares.Controls[i]).Bind(items[i], theme, i < items.Count - 1);
+            ((ShareRow)_shares.Controls[i]).Bind(items[i], theme, i < items.Count - 1, BodyPx);
         }
+    }
+
+    static readonly (string Name, string Id, string Label)[] KnownShares =
+    [
+        ("Build", "product-grokbuild", "Grok Build share"),
+        ("Imagine", "product-grokimagine", "Grok Imagine share"),
+        ("Chat", "product-grokchat", "Grok Chat share"),
+        ("Voice", "product-grokvoice", "Grok Voice share"),
+        ("Bot", "product-grokbot", "Grok Bot share"),
+    ];
+
+    static List<UsageWindow> MergeShares(IEnumerable<UsageWindow> fromApi)
+    {
+        var leftover = fromApi.ToList();
+        var items = new List<UsageWindow>();
+        foreach (var known in KnownShares)
+        {
+            var match = leftover.FirstOrDefault(w =>
+                Format.ShareName(w.Label).Equals(known.Name, StringComparison.OrdinalIgnoreCase)
+                || w.Id.Contains(known.Name, StringComparison.OrdinalIgnoreCase));
+            items.Add(match ?? new UsageWindow(known.Id, known.Label, 0, null, null));
+            if (match is not null) leftover.Remove(match);
+        }
+        items.AddRange(leftover.OrderBy(w => ShareOrder(Format.ShareName(w.Label))));
+        return items;
     }
 
     void ApplyTheme()
@@ -307,7 +336,7 @@ public sealed class DashboardForm : Form
         Padding = new Padding(0),
     };
 
-    static TableLayoutPanel Split(Control left, Control right, int top, int bottom)
+    TableLayoutPanel Split(Control left, Control right, int top, int bottom)
     {
         var row = new TableLayoutPanel
         {
@@ -316,8 +345,9 @@ public sealed class DashboardForm : Form
             ColumnCount = 2,
             RowCount = 1,
             Margin = new Padding(0, top, 0, bottom),
-            MinimumSize = new Size(BodyWidth, 0),
+            MinimumSize = new Size(LogicalBody, 0),
         };
+        _wide.Add(row);
         row.ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
         row.ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
         row.Controls.Add(left, 0, 0);
@@ -360,25 +390,22 @@ public sealed class DashboardForm : Form
         return 8;
     }
 
-    void SetHeadline(string text)
+    int BodyPx => IsHandleCreated ? LogicalToDeviceUnits(LogicalBody) : LogicalBody;
+
+    void ApplyWidths()
     {
-        _headline.Text = text;
-        for (var size = 32f; size >= 16f; size -= 1f)
-        {
-            using var font = new Font("Segoe UI", size, FontStyle.Bold);
-            var width = TextRenderer.MeasureText(
-                text,
-                font,
-                new Size(int.MaxValue, int.MaxValue),
-                TextFormatFlags.SingleLine | TextFormatFlags.NoPadding).Width;
-            if (width <= BodyWidth)
-            {
-                var previous = _headline.Font;
-                _headline.Font = new Font("Segoe UI", size, FontStyle.Bold);
-                if (!ReferenceEquals(previous, Font)) previous.Dispose();
-                return;
-            }
-        }
+        var width = BodyPx;
+        MinimumSize = new Size(IsHandleCreated ? LogicalToDeviceUnits(364) : 364, 0);
+        foreach (var control in _wide)
+            control.MinimumSize = new Size(width, 0);
+        _sub.MaximumSize = new Size(width, 0);
+        _error.MaximumSize = new Size(width, 0);
+        _limit.MaximumSize = new Size(width, 0);
+        _headline.MaximumSize = Size.Empty;
+        _meter.Width = width;
+        _footerLine.Width = width;
+        foreach (var row in _shares.Controls.OfType<ShareRow>())
+            row.MinimumSize = new Size(width, 0);
     }
 
     static string Updated(DateTimeOffset at, DateTimeOffset now)
@@ -402,7 +429,7 @@ public sealed class DashboardForm : Form
             ColumnCount = 2;
             RowCount = 2;
             Margin = new Padding(0);
-            MinimumSize = new Size(BodyWidth, 0);
+            MinimumSize = new Size(LogicalBody, 0);
             ColumnStyles.Add(new ColumnStyle(SizeType.Percent, 100));
             ColumnStyles.Add(new ColumnStyle(SizeType.AutoSize));
             _name.Anchor = AnchorStyles.Left;
@@ -415,8 +442,9 @@ public sealed class DashboardForm : Form
             Controls.Add(_rule, 0, 1);
         }
 
-        public void Bind(UsageWindow window, Palette theme, bool showRule)
+        public void Bind(UsageWindow window, Palette theme, bool showRule, int width)
         {
+            MinimumSize = new Size(width, 0);
             _name.Text = Format.ShareName(window.Label);
             _name.ForeColor = theme.Text;
             _value.Text = window.UsedPercent <= 0.5 ? "Ready" : $"{Math.Round(window.RemainingPercent)}%";

@@ -81,11 +81,11 @@ public sealed class TrayApplication : ApplicationContext
             return;
         }
         _dashboard ??= CreateDashboard();
+        if (!_dashboard.IsHandleCreated)
+            _ = _dashboard.Handle;
         _dashboard.Render();
         var cursor = anchor ?? Cursor.Position;
         var icon = TrayIconBounds.From(_tray, cursor);
-        if (!_dashboard.IsHandleCreated)
-            _ = _dashboard.Handle;
         _dashboard.PerformLayout();
         PositionAboveIcon(_dashboard, icon);
         _dashboard.OpenedAtMs = Environment.TickCount64;

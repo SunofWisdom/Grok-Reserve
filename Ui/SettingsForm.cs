@@ -77,7 +77,7 @@ public sealed class SettingsForm : Form
             _store.Prefs.StartWithWindows = _startup.Checked;
         };
 
-        _about.Text = "Grok Reserve 1.0.0\nSign-in stays in the official Grok CLI.\nMIT licensed. Independent — not affiliated with xAI.";
+        _about.Text = "Grok Reserve 1.0.1\nSign-in stays in the official Grok CLI.\nMIT licensed. Independent — not affiliated with xAI.";
         _about.AutoSize = true;
         _about.MaximumSize = new Size(384, 0);
         _about.Margin = new Padding(0);

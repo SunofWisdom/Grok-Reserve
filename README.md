@@ -28,6 +28,8 @@ dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=
 
 The exe lands in `bin\Release\net8.0-windows\win-x64\publish\GrokReserve.exe`.
 
+A ready-made build is on [Releases](https://github.com/SunofWisdom/Grok-Reserve/releases). See [CHANGELOG](CHANGELOG.md) for what changed.
+
 ## Run from source
 
 ```powershell

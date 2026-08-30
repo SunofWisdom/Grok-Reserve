@@ -213,7 +213,6 @@ public sealed class DashboardForm : Form
         ("Imagine", "product-grokimagine", "Grok Imagine share"),
         ("Chat", "product-grokchat", "Grok Chat share"),
         ("Voice", "product-grokvoice", "Grok Voice share"),
-        ("Bot", "product-grokbot", "Grok Bot share"),
     ];
 
     static List<UsageWindow> MergeShares(IEnumerable<UsageWindow> fromApi)

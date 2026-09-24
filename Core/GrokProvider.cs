@@ -166,8 +166,11 @@ public static class GrokProvider
         if (products is not { ValueKind: JsonValueKind.Array }) return windows;
         foreach (var product in products.Value.EnumerateArray().Take(31))
         {
-            var usage = product.TryGetProperty("usagePercent", out var up) ? up.GetDouble()
-                : product.TryGetProperty("usage_percent", out var up2) ? up2.GetDouble() : 0;
+            JsonElement usageEl;
+            if (product.TryGetProperty("usagePercent", out var up)) usageEl = up;
+            else if (product.TryGetProperty("usage_percent", out var up2)) usageEl = up2;
+            else continue;
+            if (!usageEl.TryGetDouble(out var usage)) continue;
             var name = product.TryGetProperty("product", out var p) ? p.GetString() ?? "share" : "share";
             windows.Add(new($"product-{name.ToLowerInvariant()}", ProductLabel(name), usage, minutes, end));
         }
@@ -192,6 +195,7 @@ public static class GrokProvider
             "grokchat" => "Grok Chat share",
             "grokimagine" => "Grok Imagine share",
             "grokvoice" => "Grok Voice share",
+            "groktasks" or "tasks" or "automations" => "Automations",
             "grokbot" or "bot" => "Grok Bot share",
             _ => $"{product} share",
         };

@@ -5,9 +5,14 @@ capacity you have left.
 
 ![Grok Reserve dashboard and settings](screenshot.png)
 
-The tray icon is the Grok mark with a ring around it. Green means reserve or on
-pace; orange means deficit or exhausted — the same colours as the dashboard
-percent. Hover for a three-line tooltip. Click for the dashboard.
+The tray icon is the Grok mark with a ring around it. The ring is the **SuperGrok
+weekly pool** (Chat, Imagine, Voice, Build, Automations). Green means reserve or
+on pace; orange means deficit or exhausted. Hover for the tooltip. Click for
+the dashboard.
+
+The dashboard also shows **Grok Bot** when that app is signed in on this PC.
+Bot has its own weekly limit and its own reset. It does not spend the SuperGrok
+pool. grok.com shows percent **used**; Reserve shows percent **left**.
 
 ## You need this first
 
@@ -19,6 +24,10 @@ grok login
 
 Grok Reserve reads `%USERPROFILE%\.grok\auth.json`. It does not have its own
 account.
+
+The Bot meter also needs the Grok Bot desktop app, signed in, on the same
+Windows user. Reserve does not ask for a second password. It uses the session
+Bot already stored.
 
 ## Build a single self-contained exe
 

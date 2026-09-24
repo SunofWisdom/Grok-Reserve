@@ -26,6 +26,7 @@ public sealed class TrayApplication : ApplicationContext
         _store.Changed += OnChanged;
         Theme.Changed += OnThemeChanged;
         ApplyTray();
+        _tray.ShowBalloonTip(4000, "Grok Reserve", "It is in the notification area. Click the Grok mark. If you do not see it, open the arrow beside the clock.", ToolTipIcon.None);
     }
 
     void OnThemeChanged()
@@ -58,12 +59,16 @@ public sealed class TrayApplication : ApplicationContext
         var plan = string.Join(" ", new[] { "Grok", _store.State.Snapshot?.PlanName }.Where(s => !string.IsNullOrWhiteSpace(s)));
         var capacity = remaining is { } left ? $"{Math.Round(left)}% left" : "capacity unavailable";
         var reset = window?.ResetsAt is { } at && at > now ? Format.ShortCountdown(at, now) : null;
-        _tray.Text = TrimTip(string.Join("\r\n", new[]
+        var bot = _store.State.Snapshot?.Windows.FirstOrDefault(w => w.Id == "bot-weekly");
+        var lines = new List<string>
         {
             string.IsNullOrWhiteSpace(plan) ? "Grok" : plan,
             $"{capacity} · {Format.PaceLabel(pace.Kind)}",
             reset is null ? "Reset time unavailable" : $"Resets in {reset}",
-        }));
+        };
+        if (bot is not null)
+            lines.Add($"Bot {Math.Round(bot.RemainingPercent)}% left");
+        _tray.Text = TrimTip(string.Join("\r\n", lines));
         var next = GaugeIcon.Create(remaining, pace.Kind);
         var old = _currentIcon;
         _tray.Icon = next;

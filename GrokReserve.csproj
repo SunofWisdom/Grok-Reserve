@@ -10,10 +10,13 @@
     <RootNamespace>GrokReserve</RootNamespace>
     <Product>Grok Reserve</Product>
     <AssemblyTitle>Grok Reserve</AssemblyTitle>
-    <Version>1.0.1</Version>
+    <Version>1.0.2</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\grok.ico</ApplicationIcon>
   </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="System.Security.Cryptography.ProtectedData" Version="8.0.0" />
+  </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="Assets\grok.png" />
     <EmbeddedResource Include="Assets\grok.ico" />

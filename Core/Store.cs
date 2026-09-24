@@ -40,7 +40,16 @@ public sealed class Store
             }
             else
             {
-                State.Snapshot = await GrokProvider.FetchAsync();
+                var snap = await GrokProvider.FetchAsync();
+                var bot = BotUsage.TryRead();
+                if (bot is not null)
+                    snap = new UsageSnapshot
+                    {
+                        PlanName = snap.PlanName,
+                        FetchedAt = snap.FetchedAt,
+                        Windows = snap.Windows.Append(bot).ToList(),
+                    };
+                State.Snapshot = snap;
                 State.Error = null;
                 State.RequiresConnection = false;
             }

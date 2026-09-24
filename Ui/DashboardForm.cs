@@ -22,6 +22,10 @@ public sealed class DashboardForm : Form
     readonly Button _settings = GhostButton("Settings");
     readonly Button _quit = GhostButton("Quit");
     readonly FlowLayoutPanel _shares = new();
+    readonly Label _botTitle = MakeLabel(10.5f, FontStyle.Bold);
+    readonly Label _botValue = MakeLabel(16f, FontStyle.Bold);
+    readonly Label _botReset = MakeLabel(8.5f);
+    readonly MeterBar _botMeter = new();
     readonly Panel _footerLine = new();
 
     public long OpenedAtMs;
@@ -78,6 +82,13 @@ public sealed class DashboardForm : Form
         _shares.WrapContents = false;
         _shares.Margin = new Padding(0, 0, 0, 14);
 
+        _botTitle.Text = "Grok Bot";
+        _botTitle.Margin = new Padding(0, 4, 0, 2);
+        _botValue.Margin = new Padding(0, 0, 0, 2);
+        _botReset.Margin = new Padding(0, 0, 0, 8);
+        _botMeter.Height = 4;
+        _botMeter.Margin = new Padding(0, 0, 0, 16);
+
         _footerLine.Height = 1;
         _footerLine.Margin = new Padding(0, 2, 0, 8);
         _quit.Anchor = AnchorStyles.Right;
@@ -94,6 +105,10 @@ public sealed class DashboardForm : Form
         _root.Controls.Add(_limit);
         _root.Controls.Add(_meter);
         _root.Controls.Add(_shares);
+        _root.Controls.Add(_botTitle);
+        _root.Controls.Add(_botValue);
+        _root.Controls.Add(_botReset);
+        _root.Controls.Add(_botMeter);
         _root.Controls.Add(_footerLine);
         _root.Controls.Add(Split(_settings, _quit, 0, 0));
         Controls.Add(_root);
@@ -184,6 +199,7 @@ public sealed class DashboardForm : Form
             _shares.Visible = false;
         else
             BindShares(_store.State.Snapshot.Windows.Where(w => w.IsComponentShare));
+        BindBot(_store.State.Snapshot?.Windows.FirstOrDefault(w => w.Id == "bot-weekly"), theme, now);
         ApplyTheme();
         PerformLayout();
     }
@@ -191,7 +207,7 @@ public sealed class DashboardForm : Form
     void BindShares(IEnumerable<UsageWindow> shares)
     {
         var theme = Theme.Current;
-        var items = MergeShares(shares);
+        var items = shares.OrderBy(w => ShareOrder(Format.ShareName(w.Label))).ToList();
         _shares.Visible = items.Count > 0;
         while (_shares.Controls.Count > items.Count)
         {
@@ -207,28 +223,27 @@ public sealed class DashboardForm : Form
         }
     }
 
-    static readonly (string Name, string Id, string Label)[] KnownShares =
-    [
-        ("Build", "product-grokbuild", "Grok Build share"),
-        ("Imagine", "product-grokimagine", "Grok Imagine share"),
-        ("Chat", "product-grokchat", "Grok Chat share"),
-        ("Voice", "product-grokvoice", "Grok Voice share"),
-    ];
-
-    static List<UsageWindow> MergeShares(IEnumerable<UsageWindow> fromApi)
+    void BindBot(UsageWindow? bot, Palette theme, DateTimeOffset now)
     {
-        var leftover = fromApi.ToList();
-        var items = new List<UsageWindow>();
-        foreach (var known in KnownShares)
-        {
-            var match = leftover.FirstOrDefault(w =>
-                Format.ShareName(w.Label).Equals(known.Name, StringComparison.OrdinalIgnoreCase)
-                || w.Id.Contains(known.Name, StringComparison.OrdinalIgnoreCase));
-            items.Add(match ?? new UsageWindow(known.Id, known.Label, 0, null, null));
-            if (match is not null) leftover.Remove(match);
-        }
-        items.AddRange(leftover.OrderBy(w => ShareOrder(Format.ShareName(w.Label))));
-        return items;
+        var show = bot is not null;
+        _botTitle.Visible = show;
+        _botValue.Visible = show;
+        _botReset.Visible = show;
+        _botMeter.Visible = show;
+        if (bot is null) return;
+        var left = bot.RemainingPercent;
+        _botValue.Text = $"{Math.Round(left)}% left";
+        _botValue.ForeColor = Format.PaceColor(PaceState.Calculate(bot, _store.State.Snapshot?.FetchedAt, false, now).Kind);
+        _botReset.Text = bot.ResetsAt is { } reset && reset > now
+            ? $"Resets {Format.Moment(reset, now)}"
+            : "Next reset unknown";
+        _botReset.ForeColor = theme.Muted;
+        _botTitle.ForeColor = theme.Text;
+        _botMeter.Fill = _botValue.ForeColor;
+        _botMeter.Percent = left;
+        _botMeter.Track = theme.Track;
+        _botMeter.Width = BodyPx;
+        _botMeter.Invalidate();
     }
 
     void ApplyTheme()
@@ -381,11 +396,11 @@ public sealed class DashboardForm : Form
     static int ShareOrder(string name)
     {
         var key = name.ToLowerInvariant();
-        if (key.Contains("build")) return 0;
+        if (key.Contains("chat")) return 0;
         if (key.Contains("imagine")) return 1;
-        if (key.Contains("chat")) return 2;
-        if (key.Contains("voice")) return 3;
-        if (key.Contains("bot")) return 4;
+        if (key.Contains("task") || key.Contains("automation")) return 2;
+        if (key.Contains("build")) return 3;
+        if (key.Contains("voice")) return 4;
         return 8;
     }
 

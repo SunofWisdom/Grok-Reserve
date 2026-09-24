@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.0.3
+
+- Hover tip is our own card, not the Windows tooltip. Text is centered, in the same paper or charcoal as the dashboard, with a hairline edge.
+- The large number is how much of the SuperGrok week is left, in the pace green or orange. Under it: pace, reset, and Bot only when that pool is signed in.
+- The tip stays above the tray icon. It no longer follows the pointer or redraws on every mouse move.
+
 ## 1.0.2
 
 Matches the two weekly meters on grok.com → Settings → Usage.

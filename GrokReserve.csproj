@@ -10,7 +10,7 @@
     <RootNamespace>GrokReserve</RootNamespace>
     <Product>Grok Reserve</Product>
     <AssemblyTitle>Grok Reserve</AssemblyTitle>
-    <Version>1.0.2</Version>
+    <Version>1.0.3</Version>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\grok.ico</ApplicationIcon>
   </PropertyGroup>

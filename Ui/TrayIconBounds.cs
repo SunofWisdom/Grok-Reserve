@@ -5,12 +5,11 @@ namespace GrokReserve.Ui;
 
 static class TrayIconBounds
 {
-    public static Rectangle From(NotifyIcon tray, Point fallback)
-    {
-        if (TryGetNotifyIconRect(tray, out var rect) && rect.Width > 0 && rect.Height > 0)
-            return rect;
-        return new Rectangle(fallback.X - 12, fallback.Y - 12, 24, 24);
-    }
+    public static Rectangle From(NotifyIcon tray, Point fallback) =>
+        TryGet(tray) ?? new Rectangle(fallback.X - 12, fallback.Y - 12, 24, 24);
+
+    public static Rectangle? TryGet(NotifyIcon tray) =>
+        TryGetNotifyIconRect(tray, out var rect) && rect.Width > 0 && rect.Height > 0 ? rect : null;
 
     static bool TryGetNotifyIconRect(NotifyIcon tray, out Rectangle rect)
     {

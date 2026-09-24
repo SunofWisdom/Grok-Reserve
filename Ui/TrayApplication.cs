@@ -6,6 +6,9 @@ public sealed class TrayApplication : ApplicationContext
 {
     readonly Store _store;
     readonly NotifyIcon _tray;
+    readonly TrayTip _tip = new();
+    readonly System.Windows.Forms.Timer _tipWatch = new() { Interval = 150 };
+    Rectangle _tipAnchor;
     DashboardForm? _dashboard;
     SettingsForm? _settings;
     Icon? _currentIcon;
@@ -16,13 +19,23 @@ public sealed class TrayApplication : ApplicationContext
         _tray = new NotifyIcon
         {
             Visible = true,
-            Text = "Grok Reserve",
+            Text = "",
             ContextMenuStrip = BuildMenu(),
         };
+        _tray.MouseMove += (_, _) => { if (!_tip.Visible) ShowTip(); };
         _tray.MouseClick += (_, e) =>
         {
+            _tip.Hide();
             if (e.Button == MouseButtons.Left) ToggleDashboard(Cursor.Position);
         };
+        _tipWatch.Tick += (_, _) =>
+        {
+            if (!_tip.Visible) return;
+            var cursor = Cursor.Position;
+            if (_tipAnchor.Contains(cursor) || _tip.Bounds.Contains(cursor)) return;
+            _tip.Hide();
+        };
+        _tipWatch.Start();
         _store.Changed += OnChanged;
         Theme.Changed += OnThemeChanged;
         ApplyTray();
@@ -53,30 +66,45 @@ public sealed class TrayApplication : ApplicationContext
     void ApplyTray()
     {
         var window = _store.PrimaryWindow;
-        var pace = _store.Pace;
         var remaining = window?.RemainingPercent;
-        var now = DateTimeOffset.Now;
-        var plan = string.Join(" ", new[] { "Grok", _store.State.Snapshot?.PlanName }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        var capacity = remaining is { } left ? $"{Math.Round(left)}% left" : "capacity unavailable";
-        var reset = window?.ResetsAt is { } at && at > now ? Format.ShortCountdown(at, now) : null;
-        var bot = _store.State.Snapshot?.Windows.FirstOrDefault(w => w.Id == "bot-weekly");
-        var lines = new List<string>
-        {
-            string.IsNullOrWhiteSpace(plan) ? "Grok" : plan,
-            $"{capacity} · {Format.PaceLabel(pace.Kind)}",
-            reset is null ? "Reset time unavailable" : $"Resets in {reset}",
-        };
-        if (bot is not null)
-            lines.Add($"Bot {Math.Round(bot.RemainingPercent)}% left");
-        _tray.Text = TrimTip(string.Join("\r\n", lines));
-        var next = GaugeIcon.Create(remaining, pace.Kind);
+        _tray.Text = "";
+        if (_tip.Visible)
+            _tip.UpdateLines(TipLines());
+        var next = GaugeIcon.Create(remaining, _store.Pace.Kind);
         var old = _currentIcon;
         _tray.Icon = next;
         _currentIcon = next;
         old?.Dispose();
     }
 
-    static string TrimTip(string text) => text.Length <= 127 ? text : text[..127];
+    TipContent TipLines()
+    {
+        var window = _store.PrimaryWindow;
+        var remaining = window?.RemainingPercent;
+        var now = DateTimeOffset.Now;
+        var pace = _store.Pace;
+        var reset = window?.ResetsAt is { } at && at > now ? Format.ShortCountdown(at, now) : null;
+        var bot = _store.State.Snapshot?.Windows.FirstOrDefault(w => w.Id == "bot-weekly");
+        return new TipContent(
+            remaining is { } left ? $"{Math.Round(left)}%" : "—",
+            window is null ? Theme.Current.Text : Format.PaceColor(pace.Kind),
+            window is null ? "Not connected" : $"left · {Format.PaceLabel(pace.Kind)}",
+            reset is null ? "Reset time unavailable" : $"Resets in {reset}",
+            bot is null ? null : $"Bot {Math.Round(bot.RemainingPercent)}% left");
+    }
+
+    void ShowTip()
+    {
+        if (_dashboard is { Visible: true } || _tip.Visible)
+        {
+            if (_dashboard is { Visible: true })
+                _tip.Hide();
+            return;
+        }
+        var cursor = Cursor.Position;
+        _tipAnchor = TrayIconBounds.TryGet(_tray) ?? new Rectangle(cursor.X - 16, cursor.Y - 16, 32, 32);
+        _tip.Present(TipLines(), _tipAnchor);
+    }
 
     void ToggleDashboard(Point? anchor = null)
     {
@@ -145,6 +173,9 @@ public sealed class TrayApplication : ApplicationContext
         Theme.Changed -= OnThemeChanged;
         Theme.Stop();
         _store.Dispose();
+        _tipWatch.Stop();
+        _tipWatch.Dispose();
+        _tip.Dispose();
         _tray.Visible = false;
         _tray.Dispose();
         _currentIcon?.Dispose();

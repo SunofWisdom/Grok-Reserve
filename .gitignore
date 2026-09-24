@@ -4,3 +4,13 @@ obj/
 *.suo
 .vs/
 *.DotSettings.user
+
+# Local logins. Never commit these.
+auth.json
+sand-secrets.json
+Local State
+*.pem
+*.key
+*.pfx
+.env
+.env.*
